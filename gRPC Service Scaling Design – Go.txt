@@ -1,0 +1,80 @@
+# gRPC Service Scaling Design – Go Implementation
+
+## 1 Architecture Overview
+The system is designed to handle 10,000 concurrent gRPC requests per second across multiple data centers. 
+
+Key components:
+
+- gRPC Service Layer (stateless)
+- Load Balancer (global and local) 
+- Paxos-based Consensus Algorithm(To keep replicas of data consistent databases, To handle failures (network issues, node crashes).
+  To ensure reliability and fault tolerance)
+- Message Queue / Job Queue (Kafka, RabbitMQ, SQS)
+- Persistent Storage (PostgreSQL, NoSQL)
+- Multi-Data Center Deployment 
+- Rate Limiting algorithm 
+- Measuring Time & Space Complexity 
+- Security (Encryption/Decryption)
+
+## 2 Go Features for High-Concurrency
+
+- Goroutines:
+  - Lightweight threads in Go, used to handle each request concurrently.
+  - Example:
+    ```go
+    go handleRequest(req)
+    ```
+
+- Channels:
+  - Safe communication between goroutines.
+  - Used for task queues and worker pools.
+    ```go
+    tasks := make(chan ReportTask, 1000)
+    ```
+
+- Worker Pools:
+  - Limit concurrent processing to avoid overloading CPU/memory.
+    ```go
+    for i := 0; i < workerCount; i++ {
+        go func() {
+            for task := range tasks {
+                processReport(task)
+            }
+        }()
+    }```
+   
+
+- Context Handling:
+  - gRPC requests include `context.Context` for cancellation and deadlines.
+    ```go
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+    ```
+
+- Connection Pooling:
+  - For DB and external services to prevent connection exhaustion.
+    ```go
+    db.SetMaxOpenConns(50)
+    db.SetMaxIdleConns(25)
+    db.SetConnMaxLifetime(time.Minute * 5)
+    ```
+
+- HTTP/2 & gRPC Streaming:
+  - Efficient request multiplexing and large report streaming.
+
+- Error Handling & Retries:
+  - Use idiomatic Go error handling and retry logic for transient failures.
+
+
+## 3 Horizontal Scaling
+
+- Stateless gRPC Service in Go.
+- Deploy in **Kubernetes** using **Argo CD** for GitOps-based deployment automation.
+- Maintain service manifests, HPA configs, and namespace configurations in Git.
+- Argo CD continuously syncs changes to the cluster.
+
+## 4 SQL Optimization:
+  - Ensure the database can handle high throughput by using proper indexing, prepared statements,stored procedure, connection pooling, and batching queries to reduce round-trips.
+## 5 Monitoring & Logging:
+  - Integrate Prometheus metrics to track CPU, memory, request rates, and error counts.
+  - Use structured logging (zap or logrus) for all service events, including request start/end and errors.
